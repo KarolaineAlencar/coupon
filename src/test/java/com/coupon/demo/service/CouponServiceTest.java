@@ -3,12 +3,14 @@ package com.coupon.demo.service;
 import com.coupon.demo.dto.request.CouponRequestDto;
 import com.coupon.demo.dto.response.CouponResponseDto;
 import com.coupon.demo.entity.CouponEntity;
+import com.coupon.demo.enums.CouponEnum;
 import com.coupon.demo.exception.ResourceNotFoundException;
 import com.coupon.demo.mapper.CouponMapper;
 import com.coupon.demo.repository.CouponRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -100,23 +102,35 @@ class CouponServiceTest {
     }
 
     @Test
-    @DisplayName("Deve deletar cupom com sucesso e retornar o DTO")
-    void deveDeletarCupomComSucesso() {
+    @DisplayName("Deve realizar soft delete do cupom (mudar status) e retornar o DTO")
+    void deveRealizarSoftDeleteDoCupom() {
         UUID id = UUID.randomUUID();
         String idString = id.toString();
+
         CouponEntity entity = new CouponEntity();
         entity.setId(id);
+        entity.setStatus(CouponEnum.ACTIVE);
+
         CouponResponseDto responseDto = new CouponResponseDto();
         responseDto.setId(String.valueOf(id));
 
         when(couponRepository.findById(id)).thenReturn(Optional.of(entity));
+        when(couponRepository.save(any(CouponEntity.class))).thenReturn(entity);
         when(mapper.toDto(entity)).thenReturn(responseDto);
 
         CouponResponseDto result = couponService.deletarCupom(idString);
 
-        assertEquals(id.toString(), result.getId());
+        assertNotNull(result);
+        assertEquals(idString, result.getId());
 
-        verify(couponRepository, times(1)).delete(entity);
+        ArgumentCaptor<CouponEntity> captor = ArgumentCaptor.forClass(CouponEntity.class);
+
+        verify(couponRepository, times(1)).save(captor.capture());
+        verify(couponRepository, never()).delete(any());
+
+        CouponEntity couponSalvo = captor.getValue();
+
+        assertEquals(CouponEnum.DELETED, couponSalvo.getStatus());
     }
 
     @Test
